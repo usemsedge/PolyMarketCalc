@@ -160,7 +160,11 @@ which contains ownership, current building placements and market placements
 Rules:
 - Market must be placed within city-owned tiles
 - A city may only own up to 1 market
-- Market must be 8-direction adjacent to at least 1 building
+- Markets must be 8-direction adjacent to at least 1 building tile
+    NOTE: We do not care about the case where we place on the last resource 
+          used by another building, even though that is technically invalid
+          in-game, as we will never want to do that in an optimal solution. 
+          This simplifies our backtracking logic significantly.
 - Can only be placed on empty or UNUSED resource tile
 - Cannot be placed on a tile already occupied by another building or market
 
@@ -173,6 +177,30 @@ true if we can place a market, false otherwise
 */
 bool canPlaceMarket(const BacktrackState& state, Coord coord);
 
+/*
+Checks if a building is allowed to be placed on a tile, based off a BacktrackState
+which contains ownership, current building placements and market placements
+
+Rules:
+- Building must be placed within city-owned tiles
+- A city may only own up to 1 building
+- Building must be 8-direction adjacent to at least 1 resource tile
+    which does not have a building or market on it already
+    NOTE: We do not care about the case where we place on the last resource 
+          used by another building, even though that is technically invalid
+          in-game, as we will never want to do that in an optimal solution. 
+          This simplifies our backtracking logic significantly.
+- Can only be placed on empty or UNUSED resource tile
+- Cannot be placed on a tile already occupied by another building or market
+
+Arguments:
+state: current backtracking state
+coord: coordinates of the tile to check
+
+Returns: 
+true if we can place a building, false otherwise
+*/
+bool canPlaceBuilding(const BacktrackState& state, Coord coord);
 
 
 

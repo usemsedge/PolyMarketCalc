@@ -109,7 +109,12 @@ Defined in marketcalc.h
 bool canPlaceMarket(const BacktrackState& state, Coord coord) {
   int row = coord.row;
   int col = coord.col;
-  // Check adjacency to at least one building tile
+  
+  // Can only place within city borders
+  if (state.map[row][col].owner == -1) {
+    return false;
+  }
+
   // Can only place on empty or resource tile
   if (state.map[row][col].type != EMPTY && state.map[row][col].type != RESOURCE) {
     return false;
@@ -121,6 +126,7 @@ bool canPlaceMarket(const BacktrackState& state, Coord coord) {
   }
 
   // Already occupied by something we just placed
+  // SANITY CHECK, DONT NEED since we already checked the map
   if (state.curBuildingsSet.find(coord) != state.curBuildingsSet.end() || 
       state.curMarketsSet.find(coord) != state.curMarketsSet.end()) {
     return false;
@@ -133,6 +139,54 @@ bool canPlaceMarket(const BacktrackState& state, Coord coord) {
     Coord adjacentCoord = {nx, ny};
     if (inBounds(state.map, adjacentCoord) &&
        state.curBuildingsSet.find(adjacentCoord) != state.curBuildingsSet.end()) {
+      return true;
+    }
+  }
+  // fix?
+  return false;
+}
+
+/*
+Defined in marketcalc.h
+*/
+bool canPlaceBuilding(const BacktrackState& state, Coord coord) {
+  int row = coord.row;
+  int col = coord.col;
+
+  // Can only place within city borders
+  if (state.map[row][col].owner == -1) {
+    return false;
+  }
+
+  // Can only place on empty or resource tile
+  if (state.map[row][col].type != EMPTY && state.map[row][col].type != RESOURCE) {
+    return false;
+  }
+
+  // Building exists in city already
+  if (state.curBuildingsInCity.find(state.map[row][col].owner) != state.curBuildingsInCity.end()) {
+    return false;
+  }
+
+  // Already occupied by something we just placed
+  // SANITY CHECK, DONT NEED since we already checked the map
+  if (state.curBuildingsSet.find(coord) != state.curBuildingsSet.end() || 
+      state.curMarketsSet.find(coord) != state.curMarketsSet.end()) {
+    return false;
+  }
+
+  // Check adjacency to at least one resource tile
+  // which is not covered
+  for (int i = 0; i < BASE_TILE_COUNT; i++) {
+    int nx = col + dx[i];
+    int ny = row + dy[i];
+    Coord adjacentCoord = {nx, ny};
+    if (inBounds(state.map, adjacentCoord) &&
+       (state.map[ny][nx].type == RESOURCE || 
+       state.map[ny][nx].type == USED_RESOURCE) && 
+       state.curBuildingsSet.find(adjacentCoord) == state.curBuildingsSet.end() &&
+       state.curMarketsSet.find(adjacentCoord) == state.curMarketsSet.end()) {
+
       return true;
     }
   }
