@@ -103,6 +103,43 @@ void computeOwnership(vector<vector<TileState>>& map,
 
 }
 
+/*
+Defined in marketcalc.h
+*/
+bool canPlaceMarket(const BacktrackState& state, Coord coord) {
+  int row = coord.row;
+  int col = coord.col;
+  // Check adjacency to at least one building tile
+  // Can only place on empty or resource tile
+  if (state.map[row][col].type != EMPTY && state.map[row][col].type != RESOURCE) {
+    return false;
+  }
+
+  // Market exists in city already
+  if (state.curMarketsInCity.find(state.map[row][col].owner) != state.curMarketsInCity.end()) {
+    return false;
+  }
+
+  // Already occupied by something we just placed
+  if (state.curBuildingsSet.find(coord) != state.curBuildingsSet.end() || 
+      state.curMarketsSet.find(coord) != state.curMarketsSet.end()) {
+    return false;
+  }
+
+  // Check adjacency to at least one building tile
+  for (int i = 0; i < BASE_TILE_COUNT; i++) {
+    int nx = row + dx[i];
+    int ny = col + dy[i];
+    Coord adjacentCoord = {nx, ny};
+    if (inBounds(state.map, adjacentCoord) &&
+       state.curBuildingsSet.find(adjacentCoord) != state.curBuildingsSet.end()) {
+      return true;
+    }
+  }
+  // fix?
+  return false;
+}
+
 #if 0
 
 MarketResult calculateBestMarketsGivenGrowthOrder(const vector<vector<int>>& map, const vector<int>& growthOrder) {
@@ -190,37 +227,6 @@ bool canPlaceBuilding(const BacktrackState& state, int x, int y) {
   return false;
 }
 
-/**
- * Given a BacktrackState and coordinates, check if we can place a market
- * Rules: 
- * market must be adjacent to at least 1 building
- * can only be placed on empty or resource tile
- * 
- * This function DOES NOT CHECK only 1 market per city
- */
-bool canPlaceMarket(const BacktrackState& state, int x, int y) {
-  // Check adjacency to at least one building tile
-  // Can only place on empty or resource tile
-  if (state.map[y][x] != EMPTY && state.map[y][x] != RESOURCE) {
-    return false;
-  }
-  if (state.curBuildingsSet.find({x, y}) != state.curBuildingsSet.end() || 
-      state.curMarketsSet.find({x, y}) != state.curMarketsSet.end()) {
-    return false; // Already occupied by another building or market
-  }
-
-  // Check adjacency to at least one building tile
-  for (int i = 0; i < BASE_TILE_COUNT; i++) {
-    int nx = x + dx[i];
-    int ny = y + dy[i];
-    if (inBounds(state.map, nx, ny) &&
-       state.curBuildingsSet.find({nx, ny}) != state.curBuildingsSet.end()) {
-      return true;
-    }
-  }
-  // fix?
-  return false;
-}
 
 /**
  * Given a BacktrackState, calculate the total market level

@@ -23,6 +23,7 @@ constexpr int OBSTACLE = 2;
 constexpr int RESOURCE = 3;
 constexpr int BUILDING = 4;
 constexpr int MARKET = 5;
+constexpr int USED_RESOURCE = 6;
 
 struct TileState {
   int owner; // city ID that owns this tile, or -1 if unowned
@@ -49,6 +50,45 @@ struct Coord {
     return !(*this == other);
   }
 };
+
+namespace std {
+  template <>
+  struct hash<Coord> {
+    size_t operator()(const Coord& c) const {
+      return hash<long long>()(((long long)c.row << 32) | (c.col & 0xFFFFFFFF));
+    }
+  };
+}
+
+// State structure
+struct BacktrackState {
+    // EVERYTHING MUST BE CONSISTENT WITH EACH OTHER
+
+    // Ownership and tile map
+    vector<vector<TileState>>& map; 
+
+    // cityCenters[i] corresponds to city ID i
+    const vector<Coord>& cityCenters; 
+
+    // tilesOwnedByCity[cityId] gives list of coordinates
+    const unordered_map<int, vector<Coord>>& tilesOwnedByCity;
+
+    // Requires: quick access to buildings/markets per city for at most 1 checks
+    //           quick access to buildings/markets per tile for adjacency checks
+    // Map from city ID to building/market, key not present if not placed
+    // Set of all building/market coordinates for quick lookup
+    unordered_map<int, Coord> curBuildingsInCity;
+    unordered_set<Coord> curBuildingsSet; 
+    unordered_map<int, Coord> curMarketsInCity;
+    unordered_set<Coord> curMarketsSet;
+
+    int marketTotal; // Current total market level, as per the four vectors above
+
+    vector<vector<TileState>> bestLayout; // Best layout found so far
+    int bestMarketTotal; // Best total market level found so far
+};
+
+
 
 // Direction offsets for 8-neighbor adjacency
 constexpr int dx[] = {-1, -1, -1, 0, 0, 1, 1, 1};
@@ -113,6 +153,28 @@ void computeOwnership(vector<vector<TileState>>& map,
                       const vector<Coord>& cityCenters,
                       const vector<int>& actionOrder);
 
+/*
+Checks if a market is allowed to be placed on a tile, based off a BacktrackState
+which contains ownership, current building placements and market placements
+
+Rules:
+- Market must be placed within city-owned tiles
+- A city may only own up to 1 market
+- Market must be 8-direction adjacent to at least 1 building
+- Can only be placed on empty or UNUSED resource tile
+- Cannot be placed on a tile already occupied by another building or market
+
+Arguments:
+state: current backtracking state
+coord: coordinates of the tile to check
+
+Returns: 
+true if we can place a market, false otherwise
+*/
+bool canPlaceMarket(const BacktrackState& state, Coord coord);
+
+
+
 
 /*
  Calculate the best market spots and corresponding building spots
@@ -141,37 +203,6 @@ a MarketResult struct containing
 vector<vector<int>> bestMarketLayoutGivenBorderGrowthOrder(const vector<vector<int>>& map, 
                                         const vector<int>& growthOrder);
 
-
-// State structure
-struct BacktrackState {
-    // The map will not be modified
-    // but we will use it for building and market checks
-    const vector<vector<int>>& map; 
-
-    // cityCenters[i] corresponds to city ID i
-    const vector<pair<int,int>>& cityCenters; 
-
-    // tilesOwnedByCity[cityId] gives list of coordinates
-    const unordered_map<int, vector<pair<int,int>>>& tilesOwnedByCity;
-
-    // facts about the map
-    int height;
-    int width;
-    int numCities;
-
-    // These get sets for fast lookup and modification
-    vector<pair<int,int>> curBuildings; // current building placements for each city
-    unordered_set<pair<int, int>> curBuildingsSet;
-    vector<pair<int,int>> curMarkets; // current market placements for each city
-    unordered_set<pair<int, int>> curMarketsSet;
-
-    int marketTotal; // Current total market level
-
-    vector<vector<int>> bestLayout; // Best layout found so far
-    int bestMarketTotal; // Best total market level found so far
-};
-
-
 /*
 Checks if a building is allowed to be placed on a tile
 IGNORES 1 PER CITY LIMIT
@@ -188,26 +219,9 @@ x, y: coordinates of the tile to check
 Returns:
 true if we can place a building, false otherwise
 */
-bool canPlaceBuilding(const BacktrackState& state, int x, int y);
+bool canPlaceBuilding(const BacktrackState& state, Coord coord);
 
 
-/*
-Checks if a market is allowed to be placed on a tile
-IGNORES 1 PER CITY LIMIT
-
-Rules:
-- Market must be adjacent to at least 1 building
-- Can only be placed on empty or resource tile
-- Cannot be placed on a tile already occupied by another building or market
-
-Arguments:
-state: current backtracking state
-x, y: coordinates of the tile to check
-
-Returns: 
-true if we can place a market, false otherwise
-*/
-bool canPlaceMarket(const BacktrackState& state, int x, int y);
 
 
 /*
