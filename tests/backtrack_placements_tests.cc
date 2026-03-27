@@ -263,6 +263,5 @@ TEST(backtrackPlacements, 2CitiesMaxMarkets) {
   EXPECT_TRUE((res[0][2].type == MARKET) != (res[2][2].type == MARKET));
   EXPECT_TRUE((res[0][3].type == MARKET) != (res[2][3].type == MARKET));
 
-
-  
 }
+

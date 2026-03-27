@@ -203,7 +203,6 @@ BacktrackResult backtrackPlacements(BacktrackState& state, int cityIdx, bool pla
     for (const auto& market : state.curMarketsSet) {
       finalMap[market.row][market.col].type = MARKET;
     }
-    std::cout << "Calculated market total: " << calculateMarketTotal(state) << std::endl;
     return BacktrackResult {
       calculateMarketTotal(state),
       finalMap,
@@ -280,10 +279,6 @@ BacktrackResult backtrackPlacements(BacktrackState& state, int cityIdx, bool pla
     throw std::invalid_argument("Invalid state in backtrackPlacements: placingBuilding is " + std::to_string(placingBuilding) + " and cityIdx is " + std::to_string(cityIdx));
   }
 
-  std::cout << "Best market total for cityIdx " << cityIdx << " and placingBuilding " << placingBuilding << ": " << bestResult.bestMarketTotal << std::endl;
-  if (cityIdx == 1 && placingBuilding && bestResult.bestMarketTotal == 16) {
-    std::cout << "BREAKPOINT" << std::endl;
-  }
   return bestResult;
 }
 
@@ -348,10 +343,46 @@ BacktrackResult findBestMarketLayout(vector<vector<int>>& map,
   // Get ownership
   computeOwnership(tileMap, cityCenters, actionOrder);
 
-  return BacktrackResult{
-    0,
+  // Create tilesOwnedByCity map
+  unordered_map<int, vector<Coord>> tilesOwnedByCity;
+  for (int i = 0; i < (int)tileMap.size(); i++) {
+    for (int j = 0; j < (int)tileMap[0].size(); j++) {
+      if (tileMap[i][j].owner != -1) {
+        tilesOwnedByCity[tileMap[i][j].owner].push_back(Coord{i, j});
+      }
+    }
+  }
+
+  // Put existing buildings and markets in state
+  unordered_map<int, Coord> curBuildingsInCity;
+  unordered_set<Coord> curBuildingsSet;
+  unordered_map<int, Coord> curMarketsInCity;
+  unordered_set<Coord> curMarketsSet;
+  for (int i = 0; i < (int)tileMap.size(); i++) {
+    for (int j = 0; j < (int)tileMap[0].size(); j++) {
+      if (tileMap[i][j].type == BUILDING) {
+        curBuildingsInCity[tileMap[i][j].owner] = Coord{i, j};
+        curBuildingsSet.insert(Coord{i, j});
+      }
+      else if (tileMap[i][j].type == MARKET) {
+        curMarketsInCity[tileMap[i][j].owner] = Coord{i, j};
+        curMarketsSet.insert(Coord{i, j});
+      }
+    }
+  }
+
+  BacktrackState state{
     tileMap,
+    cityCenters,
+    tilesOwnedByCity,
+
+    curBuildingsInCity,
+    curBuildingsSet,
+    curMarketsInCity,
+    curMarketsSet,
   };
+
+  return backtrackPlacements(state, 0, true);
 }
 
 /*

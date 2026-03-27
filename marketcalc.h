@@ -1,6 +1,7 @@
 #ifndef MARKETCALC_H_
 #define MARKETCALC_H_
 
+#include <iostream>
 #include <vector>
 #include <unordered_map>
 #include <functional>
