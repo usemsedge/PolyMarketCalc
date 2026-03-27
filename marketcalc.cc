@@ -194,6 +194,93 @@ bool canPlaceBuilding(const BacktrackState& state, Coord coord) {
   return false;
 }
 
+/*
+Defined in marketcalc.h
+*/
+BacktrackResult backtrackPlacements(BacktrackState& state, int cityIdx, bool placingBuilding) {
+  // Base case: cityIdx is at the end and placingBuilding is false, calculate market total
+
+  if (cityIdx == (int)state.cityCenters.size() && !placingBuilding) {
+    // TODO: we need to generate the map
+    return BacktrackResult {
+      calculateMarketTotal(state),
+      state.map,
+    };
+  }
+
+  // Recursive case 1: place a building (placingBuilding is true and cityIdx is in bounds)
+  if (placingBuilding && cityIdx >= 0 && cityIdx < (int)state.cityCenters.size()) {
+    const auto& placeableTiles = state.tilesOwnedByCity.at(cityIdx);
+
+    // Attempt to place a building in each tile
+    // Update all nearby building and market levels
+    // Backtrack from there
+    for (const auto& tile : placeableTiles) {
+        if (canPlaceBuilding(state, tile)) {
+            // Place building
+            state.curBuildingsInCity[cityIdx] = tile;
+            state.curBuildingsSet.insert(tile);
+
+            // Recurse to next city and placing market
+            backtrackPlacements(state, cityIdx + 1, false);
+
+            // Backtrack
+            state.curBuildingsInCity.erase(cityIdx);
+            state.curBuildingsSet.erase(tile);
+        }
+    }
+
+    // Also try not placing a building for this city
+    backtrackPlacements(state, cityIdx + 1, false);
+  }
+
+  // Recursive case 2: place a market 
+  // (placingBuilding is false, OR placingBuilding is true AND cityIdx is at the end)
+
+  // Throw if cityIdx is out of bounds
+}
+
+int calculateMarketTotal(const BacktrackState& state) {
+  // Calculate all building levels
+  unordered_map<Coord, int> buildingLevels;
+  for (const auto& buildingCoord : state.curBuildingsSet) {
+    // Go 8 directionally and add up all the uncovered resource tiles
+    int buildingLevel = 0;
+    for (int i = 0; i < BASE_TILE_COUNT; i++) {
+      int ny = buildingCoord.row + dx[i];
+      int nx = buildingCoord.col + dy[i];
+      Coord adjacentCoord = {ny, nx};
+      if (inBounds(state.map, adjacentCoord) &&
+          (state.map[ny][nx].type == RESOURCE || state.map[ny][nx].type == USED_RESOURCE) &&
+          state.curBuildingsSet.find(adjacentCoord) == state.curBuildingsSet.end() &&
+          state.curMarketsSet.find(adjacentCoord) == state.curMarketsSet.end()) {
+        buildingLevel++;
+      }
+    }
+    buildingLevels[buildingCoord] = std::min(buildingLevel, MAX_BUILDING_LEVEL);
+  }
+
+  int totalMarketLevel = 0;
+
+  // Next, calculate all market levels
+  for (const auto& marketCoord : state.curMarketsSet) {
+    int marketLevel = 0;
+    for (int i = 0; i < BASE_TILE_COUNT; i++) {
+      int nx = marketCoord.row + dx[i];
+      int ny = marketCoord.col + dy[i];
+      Coord adjacentCoord = {nx, ny};
+      if (inBounds(state.map, adjacentCoord) &&
+          state.curBuildingsSet.find(adjacentCoord) != state.curBuildingsSet.end()) {
+        marketLevel += buildingLevels[adjacentCoord];
+      }
+    }
+    marketLevel = std::min(marketLevel, MAX_MARKET_LEVEL);
+    totalMarketLevel += marketLevel;
+  }
+
+  return totalMarketLevel;
+}
+
 #if 0
 
 MarketResult calculateBestMarketsGivenGrowthOrder(const vector<vector<int>>& map, const vector<int>& growthOrder) {
@@ -282,85 +369,7 @@ bool canPlaceBuilding(const BacktrackState& state, int x, int y) {
 }
 
 
-/**
- * Given a BacktrackState, calculate the total market level
- * based on current building and market placements.
- */
-int calculateMarketTotal(const BacktrackState& state) {
-  // Place all buildings and markets on a temporary map
-  vector<vector<int>> tempMap = state.map;
-  for (int c = 0; c < state.numCities; c++) {
-    if (state.curBuildings[c].first != -1) {
-      int bx = state.curBuildings[c].first;
-      int by = state.curBuildings[c].second;
-      tempMap[by][bx] = BUILDING;
-      // Safety check: you may only place on empty tile or resource tile
-      if (state.map[by][bx] != EMPTY && state.map[by][bx] != RESOURCE) {
-        std::cerr << "Error: Attempted to place building on invalid tile." << std::endl;
-        exit(1);
-      }
-    }
-    if (state.curMarkets[c].first != -1) {
-      int mx = state.curMarkets[c].first;
-      int my = state.curMarkets[c].second;
-      tempMap[my][mx] = MARKET;
-      // Safety check: you may only place on empty tile or resource tile
-      if (state.map[my][mx] != EMPTY && state.map[my][mx] != RESOURCE) {
-        std::cerr << "Error: Attempted to place market on invalid tile." << std::endl;
-        exit(1);
-      }
-    }
-  }
 
-  // First calculate building levels
-  unordered_map<pair<int,int>, int> buildingLevels;
-  for (int c = 0; c < state.numCities; c++) {
-    if (state.curBuildings[c].first != -1) {
-      int bx = state.curBuildings[c].first;
-      int by = state.curBuildings[c].second;
-      int level = 0;
-      // Count adjacent resource tiles
-      for (int i = 0; i < BASE_TILE_COUNT; i++) {
-        int nx = bx + dx[i];
-        int ny = by + dy[i];
-        if (inBounds(state.map, nx, ny) &&
-           (state.map[ny][nx] == RESOURCE) &&
-           state.curBuildingsSet.find({nx, ny}) == state.curBuildingsSet.end() &&
-           state.curMarketsSet.find({nx, ny}) == state.curMarketsSet.end()) {
-          level++;
-        }
-      }
-      buildingLevels[{bx, by}] = std::min(level, MAX_BUILDING_LEVEL); // cap
-    }
-  }
-  
-  // Next calculate market levels
-  int totalMarketLevel = 0;
-  for (int c = 0; c < state.numCities; c++) {
-    if (state.curMarkets[c].first != -1) {
-      int mx = state.curMarkets[c].first;
-      int my = state.curMarkets[c].second;
-      int marketLevel = 0;
-      // Sum adjacent building levels
-      for (int i = 0; i < BASE_TILE_COUNT; i++) {
-        int nx = mx + dx[i];
-        int ny = my + dy[i];
-        if (inBounds(state.map, nx, ny)) {
-          auto it = buildingLevels.find({nx, ny});
-          if (it != buildingLevels.end()) {
-            marketLevel += it->second;
-          }
-        }
-      }
-      marketLevel = std::min(marketLevel, MAX_MARKET_LEVEL); // cap
-      totalMarketLevel += marketLevel;
-    }
-  }
-
-  // Sum those and return
-  return totalMarketLevel;
-    
-}
 
 vector<vector<int>> buildLayoutFromState(const BacktrackState& state) {
     vector<vector<int>> layout = state.map;

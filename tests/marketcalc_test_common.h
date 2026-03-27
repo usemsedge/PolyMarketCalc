@@ -10,6 +10,8 @@ inline constexpr TileState T(int owner, int type) {
   return TileState{owner, type};
 }
 
+
+
 inline vector<vector<TileState>> makeNoSpecialMap() {
   return {
     {T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY)},
@@ -35,10 +37,11 @@ inline vector<Coord> makeNoSpecialCityCenters() {
  // Create a simple map and state for testing 
   // Contains a mix of everything
   // 3 cities, 2 buildings, 1 market
+  // Market total 1
 
   |_________
   |  ∧   |
-  | 0*  ⊞|
+  | 0*  ■|
   | ⊞⊞   |
   | ⊞ ∧1 |
   | 2⊕   |
@@ -48,7 +51,8 @@ inline vector<Coord> makeNoSpecialCityCenters() {
    Legend:
    ∧ = OBSTACLE
    0, 1, 2 = CITY
-   ⊞ = RESOURCE
+   ⊞ = USED_RESOURCE
+   ■ = RESOURCE
    ⊕ = MARKET
    * = BUILDING
    (empty) = EMPTY
@@ -60,8 +64,8 @@ inline BacktrackState makeRealState() {
 
   map = {
     {T(0, EMPTY), T(0, EMPTY), T(0, OBSTACLE), T(0, EMPTY), T(-1, EMPTY), T(-1, EMPTY)},
-    {T(0, EMPTY), T(0, CITY), T(0, BUILDING), T(0, EMPTY), T(1, EMPTY), T(1, USED_RESOURCE)},
-    {T(0, EMPTY), T(0, USED_RESOURCE), T(0, USED_RESOURCE), T(1, RESOURCE), T(1, EMPTY), T(1, EMPTY)},
+    {T(0, EMPTY), T(0, CITY), T(0, BUILDING), T(0, EMPTY), T(1, EMPTY), T(1, RESOURCE)},
+    {T(0, EMPTY), T(0, USED_RESOURCE), T(0, USED_RESOURCE), T(1, EMPTY), T(1, EMPTY), T(1, EMPTY)},
     {T(2, EMPTY), T(2, USED_RESOURCE), T(2, EMPTY), T(1, OBSTACLE), T(1, CITY), T(1, EMPTY)},
     {T(2, EMPTY), T(2, CITY), T(2, MARKET), T(1, EMPTY), T(1, EMPTY), T(1, EMPTY)},
     {T(2, EMPTY), T(2, USED_RESOURCE), T(2, BUILDING), T(1, EMPTY), T(1, EMPTY), T(1, EMPTY)},
@@ -121,9 +125,6 @@ inline BacktrackState makeRealState() {
     {2, Coord{4, 2}},
   };
 
-  // Level 1 market from level 1 building in city 2, that's it
-  int marketTotal = 1;
-
   return BacktrackState{
     map,
     cityCenters,
@@ -133,12 +134,6 @@ inline BacktrackState makeRealState() {
     curBuildingsSet,
     curMarketsInCity,
     curMarketsSet,
-    marketTotal,
-
-    // Best at start is original map
-    map,
-    marketTotal,
-
   };
 }
 
@@ -162,3 +157,4 @@ inline const vector<vector<int>> realStateAllowedBuildingPlacements = {
   {0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0},
 };
+

@@ -3,7 +3,7 @@
 #include <gtest/gtest.h>
 
 
-TEST(MarketCalcTest, canPlaceBuilding_RealState) {
+TEST(canPlaceBuilding, RealState) {
   BacktrackState state = makeRealState();
 
   // Loop through every possible building placement and make sure it matches expected results

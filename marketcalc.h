@@ -65,7 +65,7 @@ struct BacktrackState {
     // EVERYTHING MUST BE CONSISTENT WITH EACH OTHER
 
     // Ownership and tile map
-    vector<vector<TileState>>& map; 
+    const vector<vector<TileState>>& map; 
 
     // cityCenters[i] corresponds to city ID i
     const vector<Coord>& cityCenters; 
@@ -81,13 +81,13 @@ struct BacktrackState {
     unordered_set<Coord> curBuildingsSet; 
     unordered_map<int, Coord> curMarketsInCity;
     unordered_set<Coord> curMarketsSet;
-
-    int marketTotal; // Current total market level, as per the four vectors above
-
-    vector<vector<TileState>> bestLayout; // Best layout found so far
-    int bestMarketTotal; // Best total market level found so far
 };
 
+// Result structure
+struct BacktrackResult {
+    int bestMarketTotal;
+    vector<vector<TileState>> bestLayout;
+};
 
 
 // Direction offsets for 8-neighbor adjacency
@@ -202,73 +202,39 @@ true if we can place a building, false otherwise
 */
 bool canPlaceBuilding(const BacktrackState& state, Coord coord);
 
-
-
 /*
- Calculate the best market spots and corresponding building spots
- given a tile map and a border growth order
+Given an existing state, recursively place buildings and markets
+in all possible configurations, then return the best one found.
+Only places buildings and markets, does not modify border growths or captures.
+NOTE: "Best" is typically defined as highest market total
+  However, changing the comparison operator in BacktrackState allows us
+  to break ties or have a different criteria
 
- Best is defined as:
-  1. Maximize total market level across all cities
-      - Markets and buildings may be placed on empty or resource tiles owned by the city
-      - Each city can place at most 1 building and 1 market
-      - Market level is determined by the sum of adjacent building levels
-      - Building level is determined by the number of adjacent resource tiles (capped at 8)
-      - Market level is capped at 8 per market
+Try placing a building at cityIdx (or no place), then recurse to cityIdx + 1
+  till it hits the last city.
+Then try placing a market (or no place) at cityIdx, then recurse to cityIdx + 1
+  till it hits the last city.
+At the end, calculate market total and update best layout if needed.
 
-Arguments:
-map: 2D grid of tile types (EMPTY, CITY, etc.)
-growthOrder: order in which cities grow their borders (list of city IDs)
-      Can be missing some city IDs, as some cities may not grow
-      Cannot have city IDs that are not in cityCenters
-
-Returns:
-a MarketResult struct containing 
-  - total market level of the best result
-  - layout of the best result (2D grid where BUILDING and MARKET tiles are placed)
-
-*/
-vector<vector<int>> bestMarketLayoutGivenBorderGrowthOrder(const vector<vector<int>>& map, 
-                                        const vector<int>& growthOrder);
-
-/*
-Checks if a building is allowed to be placed on a tile
-IGNORES 1 PER CITY LIMIT
-
-Rules:
-- Building must be adjacent to at least 1 uncovered resource tile
-- Can only be placed on empty or resource tile
-- Cannot be placed on a tile already occupied by another building or market
-
-Arguments:
+Args:
 state: current backtracking state
-x, y: coordinates of the tile to check
+      which should have consistent ownership, building placements, and market placements
+      and has a built in comparison operator
+cityIdx: which city we are currently trying to place a building/market for, corresponds to city ID
+placingBuilding: true if placing building, false if placing market
 
-Returns:
-true if we can place a building, false otherwise
+Returns: backtrackResult with the best market total found and the corresponding layout
 */
-bool canPlaceBuilding(const BacktrackState& state, Coord coord);
-
-
-
+BacktrackResult backtrackPlacements(BacktrackState& state, int cityIdx, bool placingBuilding);
 
 /*
-Calculate the total market level for a given backtracking state
-Rules: 
-- Market level = the sum of adjacent building levels (capped at MAX_MARKET_LEVEL)
-- Building level = number of adjacent uncovered resource tiles (capped at MAX_BUILDING_LEVEL)
-
-Arguments:
-state: current backtracking state with building and market placements
-
-Returns:
-total market level based on current placements
+Given a state, calculate total market level.
+Rules:
+- Building level is determined by adjacency to UNCOVERED resource tiles, up to MAX_BUILDING_LEVEL
+- Market level is determined by sum of adjaicent building levels (up to MAX_MARKET_LEVEL)
+- Total market level is the sum of all individual market levels.
 */
 int calculateMarketTotal(const BacktrackState& state);
-
-
-
-
 
 
 #endif // MARKETCALC_H_

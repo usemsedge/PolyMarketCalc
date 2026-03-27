@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-TEST(MarketCalcTest, computeOwnership_AllCitiesGrow) {
+TEST(computeOwnership, AllCitiesGrow) {
   vector<vector<TileState>> map = makeNoSpecialMap();
   vector<Coord> cityCenters = makeNoSpecialCityCenters();
   vector<int> actionOrder = {0, 1, 2, 0, 1, 2};
@@ -22,7 +22,7 @@ TEST(MarketCalcTest, computeOwnership_AllCitiesGrow) {
   EXPECT_EQ(map, expectedResult);
 }
 
-TEST(MarketCalcTest, computeOwnership_AllCitiesGrowAlternateOrder) {
+TEST(computeOwnership, AllCitiesGrowAlternateOrder) {
   vector<vector<TileState>> map = makeNoSpecialMap();
   vector<Coord> cityCenters = makeNoSpecialCityCenters();
   vector<int> actionOrder = {0, 1, 2, 2, 1, 0};
@@ -42,7 +42,7 @@ TEST(MarketCalcTest, computeOwnership_AllCitiesGrowAlternateOrder) {
   EXPECT_EQ(map, expectedResult);
 }
 
-TEST(MarketCalcTest, computeOwnership_NotAllCitiesGrow) {
+TEST(computeOwnership, NotAllCitiesGrow) {
   vector<vector<TileState>> map = makeNoSpecialMap();
   vector<Coord> cityCenters = makeNoSpecialCityCenters();
   vector<int> actionOrder = {0, 1, 2, 2, 1};
@@ -62,7 +62,7 @@ TEST(MarketCalcTest, computeOwnership_NotAllCitiesGrow) {
   EXPECT_EQ(map, expectedResult);
 }
 
-TEST(MarketCalcTest, computeOwnership_GrowBeforeCapture) {
+TEST(computeOwnership, GrowBeforeCapture) {
   vector<vector<TileState>> map = makeNoSpecialMap();
   vector<Coord> cityCenters = makeNoSpecialCityCenters();
   vector<int> actionOrder = {2, 2, 1, 0};
@@ -82,7 +82,7 @@ TEST(MarketCalcTest, computeOwnership_GrowBeforeCapture) {
   EXPECT_EQ(map, expectedResult);
 }
 
-TEST(MarketCalcTest, computeOwnership_ObstaclesBlockCapture) {
+TEST(computeOwnership, ObstaclesBlockCapture) {
   vector<vector<TileState>> map = {
     {T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY)},
     {T(-1, EMPTY), T(-1, CITY), T(-1, OBSTACLE), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY)},
@@ -111,7 +111,7 @@ TEST(MarketCalcTest, computeOwnership_ObstaclesBlockCapture) {
   EXPECT_EQ(map, expectedResult);
 }
 
-TEST(MarketCalcTest, computeOwnership_FullScenario) {
+TEST(computeOwnership, FullScenario) {
   vector<vector<TileState>> map = {
     {T(-1, EMPTY), T(-1, OBSTACLE), T(-1, RESOURCE), T(-1, EMPTY), T(-1, OBSTACLE), T(-1, RESOURCE)},
     {T(-1, RESOURCE), T(-1, CITY), T(-1, EMPTY), T(-1, OBSTACLE), T(-1, RESOURCE), T(-1, EMPTY)},
