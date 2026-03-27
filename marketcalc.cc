@@ -1,4 +1,3 @@
-#include "pair_hash.h"
 #include "marketcalc.h"
 
 
@@ -216,7 +215,6 @@ BacktrackResult backtrackPlacements(BacktrackState& state, int cityIdx, bool pla
     for (const auto& market : state.curMarketsSet) {
       finalMap[market.row][market.col].type = MARKET;
     }
-    std::cout << "BASE CASE: Market total for layout with " << state.curBuildingsSet.size() << " buildings and " << state.curMarketsSet.size() << " markets is " << calculateMarketTotal(state) << std::endl;
     return BacktrackResult {
       calculateMarketTotal(state),
       finalMap,
@@ -296,6 +294,9 @@ BacktrackResult backtrackPlacements(BacktrackState& state, int cityIdx, bool pla
   return bestResult;
 }
 
+/*
+Defined in marketcalc.h
+*/
 int calculateMarketTotal(const BacktrackState& state) {
   // Calculate all building levels
   unordered_map<Coord, int> buildingLevels;
@@ -335,4 +336,24 @@ int calculateMarketTotal(const BacktrackState& state) {
   }
 
   return totalMarketLevel;
+}
+
+/*
+WASM TEST
+*/
+// Your real function using vectors
+int sum(std::vector<int> vec) {
+    int total = 0;
+    for (int val : vec) {
+        total += val;
+    }
+    return total;
+}
+
+// WASM-facing wrapper
+extern "C" {
+    int sum_wasm(int* data, int size) {
+        std::vector<int> vec(data, data + size);  // construct vector from pointer
+        return sum(vec);
+    }
 }

@@ -1,4 +1,3 @@
-#include "pair_hash.h"
 #ifndef MARKETCALC_H_
 #define MARKETCALC_H_
 
