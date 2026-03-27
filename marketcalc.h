@@ -87,6 +87,10 @@ struct BacktrackState {
 struct BacktrackResult {
     int bestMarketTotal;
     vector<vector<TileState>> bestLayout;
+
+    bool operator<(const BacktrackResult& other) const {
+        return bestMarketTotal < other.bestMarketTotal;
+    }
 };
 
 
@@ -107,12 +111,6 @@ constexpr int dy5[] = {-2, -2, -2, -2, -2,
                        1,               1,
                        2,  2,  2,  2,  2};
 constexpr int EXPANDED_TILE_COUNT = 16;
-
-
-struct MarketResult {
-    int totalMarketLevel;
-    vector<vector<int>> layout;              // output layout
-};
 
 /*
 Compute ownership map based on city centers, capture order, and growth order.

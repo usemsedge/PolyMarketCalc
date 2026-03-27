@@ -33,7 +33,7 @@ inline BacktrackState makeTinyState0Building0Market() {
     Coord{1, 1},
   };
 
-  tilesOwnedByCity[1] = {
+  tilesOwnedByCity[0] = {
     Coord{0, 0}, Coord{0, 1}, Coord{0, 2},
     Coord{1, 0}, Coord{1, 1}, Coord{1, 2},
     Coord{2, 0}, Coord{2, 1}, Coord{2, 2},
@@ -88,7 +88,7 @@ inline BacktrackState makeTinyState1Building0Market() {
     Coord{1, 1},
   };
 
-  tilesOwnedByCity[1] = {
+  tilesOwnedByCity[0] = {
     Coord{0, 0}, Coord{0, 1}, Coord{0, 2},
     Coord{1, 0}, Coord{1, 1}, Coord{1, 2},
     Coord{2, 0}, Coord{2, 1}, Coord{2, 2},
@@ -146,7 +146,7 @@ inline BacktrackState makeTinyState1Building1Market() {
     Coord{1, 1},
   };
 
-  tilesOwnedByCity[1] = {
+  tilesOwnedByCity[0] = {
     Coord{0, 0}, Coord{0, 1}, Coord{0, 2},
     Coord{1, 0}, Coord{1, 1}, Coord{1, 2},
     Coord{2, 0}, Coord{2, 1}, Coord{2, 2},
@@ -181,39 +181,42 @@ inline BacktrackState makeTinyState1Building1Market() {
 }
 
 
-TEST(backtrackPlacements, Tiny1Building1Market_DoNothing) {
+TEST(backtrackPlacements, Tiny1Building1Market_BaseCase_DoNothing) {
   BacktrackState state = makeTinyState1Building1Market();
   vector<vector<TileState>> expectedMap = state.map;
 
-  BacktrackResult resultState = backtrackPlacements(state, 0, true);
+  // Directly testing the base case
+  BacktrackResult resultState = backtrackPlacements(state, 1, false);
 
   EXPECT_EQ(expectedMap, resultState.bestLayout);
   EXPECT_EQ(1, resultState.bestMarketTotal);
 }
 
-TEST(backtrackPlacements, Tiny1Building0Market_PlaceMarket) {
+TEST(backtrackPlacements, Tiny1Building0Market_1Deep_PlaceMarket) {
   BacktrackState state = makeTinyState1Building0Market();
   vector<vector<TileState>> expectedMap = state.map;
   expectedMap[2][1] = T(1, MARKET); // Should place market here
 
-  BacktrackResult resultState = backtrackPlacements(state, 0, true);
+  //Testing the case where all the building recursion is done
+  BacktrackResult resultState = backtrackPlacements(state, 0, false);
 
   EXPECT_EQ(expectedMap, resultState.bestLayout);
   EXPECT_EQ(1, resultState.bestMarketTotal);
 }
 
-TEST(backtrackPlacements, Tiny0Building0Market_PlaceMarket) {
-  BacktrackState state = makeTinyState1Building0Market();
+TEST(backtrackPlacements, Tiny0Building0Market_2Deep_PlaceMarket) {
+  BacktrackState state = makeTinyState0Building0Market();
   vector<vector<TileState>> expectedMap = state.map;
   expectedMap[2][1] = T(1, BUILDING); // Should place building here
 
-  vector<vector<TileState>> expectedMap1 = state.map, expectedMap2 = state.map;
+  vector<vector<TileState>> expectedMap1 = expectedMap, expectedMap2 = expectedMap;
   expectedMap1[2][0] = T(1, MARKET); // Choice 1: place market here
   expectedMap2[1][0] = T(1, MARKET); // Choice 2: place market here
 
 
+  // Testing full recursion through both cases
   BacktrackResult resultState = backtrackPlacements(state, 0, true);
 
-  EXPECT_TRUE(expectedMap1 == resultState.bestLayout || expectedMap2 == resultState.bestLayout);
   EXPECT_EQ(2, resultState.bestMarketTotal);
+  EXPECT_TRUE(expectedMap1 == resultState.bestLayout || expectedMap2 == resultState.bestLayout);
 }

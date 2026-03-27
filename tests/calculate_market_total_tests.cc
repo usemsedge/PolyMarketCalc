@@ -18,6 +18,7 @@ TEST(calculateMarketTotal, 2CityBestPlacementInitially) {
   OCWWCO
   OFMMFO
   sexy double level 8 market
+  preplaced by user = map is set
   */
   vector<vector<TileState>> map = {
     {T(0, EMPTY), T(0, RESOURCE), T(0, RESOURCE), T(0, RESOURCE), T(0, RESOURCE), T(0, EMPTY)},
@@ -71,14 +72,14 @@ TEST(calculateMarketTotal, 2CityBestPlacementInitially) {
   EXPECT_EQ(expected, actual);
 }
 
-
 TEST(calculateMarketTotal, 2CityGoodPlacementFromBacktracking) {
   /*
   OOFFFO
   FC^WCO
   OWMFMO
   decent level 5 + level 4 market
-  however, the initial map was empty, the buildings and markets were added during backtracking
+  however, the initial map was empty of preplaced buildings and markets
+    the buildings and markets were added during backtracking
   */
   vector<vector<TileState>> map = {
     {T(0, EMPTY), T(0, EMPTY), T(0, RESOURCE), T(0, RESOURCE), T(0, RESOURCE), T(0, EMPTY)},
@@ -131,8 +132,6 @@ TEST(calculateMarketTotal, 2CityGoodPlacementFromBacktracking) {
   int actual = calculateMarketTotal(state);
   EXPECT_EQ(expected, actual);
 }
-
-
 
 TEST(calculateMarketTotal, CapMarketLevel) {
   /*
