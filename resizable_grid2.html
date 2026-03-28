@@ -31,8 +31,9 @@
     .v-bar { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0 8px; }
     .v-bar.left  { grid-row: 2; grid-column: 1; }
     .v-bar.right { grid-row: 2; grid-column: 3; }
-    #grid-wrapper { grid-row: 2; grid-column: 2; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 8px; }
-    #grid-container { display: grid; }
+    #grid-wrapper { grid-row: 2; grid-column: 2; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 8px; position: relative; }
+    #grid-container { display: grid; position: relative; }
+    #border-svg { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
 
     .btn {
       width: 32px; height: 32px; background: #4285f4; color: white;
@@ -42,7 +43,9 @@
     .btn:hover { background: #3071e8; }
     .btn:active { transform: scale(0.95); }
 
-    .cell { position: relative; border: 0.5px solid #bbb; overflow: hidden; cursor: pointer; flex-shrink: 0; }
+    .cell { position: relative; border: 0.5px solid #bbb; overflow: hidden; cursor: pointer; flex-shrink: 0; background: transparent; }
+    .cell.flashing { background-color: #e53935 !important; }
+    .cell.flashing .cell-bg, .cell.flashing .cell-overlay { opacity: 0.35; }
     .cell:hover { outline: 2px solid #4285f4; outline-offset: -2px; }
     .cell.no-upgrade { cursor: not-allowed; }
     .cell.no-upgrade:hover { outline: 2px solid #e53935; outline-offset: -2px; }
@@ -127,7 +130,7 @@
       <div class="v-bar left">
         <button class="btn" id="left-plus">+</button>
       </div>
-      <div id="grid-wrapper"><div id="grid-container"></div></div>
+      <div id="grid-wrapper"><div id="grid-container"></div><svg id="border-svg"></svg></div>
       <div class="v-bar right">
         <button class="btn" id="right-plus">+</button>
       </div>
@@ -295,51 +298,113 @@ function allOwnedSet() {
 }
 
 // Claim tiles in a square of half-size `half` around (cr,cc) for city `idx`,
-// skipping tiles already owned by any city. Clamps to grid bounds.
+// skipping tiles already owned by any city. No bounds clamping — cities may own off-grid tiles.
 function claimTiles(idx, cr, cc, half) {
   const owned = allOwnedSet();
-  const rows = grid.length, cols = grid[0].length;
   if (!tilesOwnedByCity[idx]) tilesOwnedByCity[idx] = [];
   for (let dr = -half; dr <= half; dr++) {
     for (let dc = -half; dc <= half; dc++) {
       const r = cr + dr, c = cc + dc;
-      if (r < 0 || r >= rows || c < 0 || c >= cols) continue;
       if (owned.has(`${r},${c}`)) continue;
       tilesOwnedByCity[idx].push({ r, c });
-      owned.add(`${r},${c}`); // prevent double-claiming within same call
+      owned.add(`${r},${c}`);
     }
   }
+}
+
+// Flash a cell red to signal a disallowed action
+function disallowedAction(r, c) {
+  const cols = grid[0].length;
+  const idx = r * cols + c;
+  const cell = document.getElementById('grid-container').children[idx];
+  if (!cell) return;
+  cell.classList.add('flashing');
+  setTimeout(() => cell.classList.remove('flashing'), 350);
+}
+
+// Returns true if placing a village at (r,c) is too close to any existing village or city
+function villageConflict(r, c) {
+  const rows = grid.length, cols = grid[0].length;
+  for (let dr = -2; dr <= 2; dr++) {
+    for (let dc = -2; dc <= 2; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const nr = r + dr, nc = c + dc;
+      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+      const v = grid[nr][nc];
+      if (v === 6 || v === 1 || v === 10) return true; // village, small_city, big_city
+    }
+  }
+  return false;
+}
+
+// Returns true if the city owning (r,c) already has a tile of tileVal
+function cityAlreadyHas(r, c, tileVal) {
+  // Find which city owns this tile
+  const ownerIdx = Object.entries(tilesOwnedByCity).find(([, tiles]) =>
+    tiles.some(t => t.r === r && t.c === c)
+  )?.[0];
+  if (ownerIdx === undefined) return false;
+  const owned = tilesOwnedByCity[ownerIdx];
+  return owned.some(t => {
+    const gr = grid[t.r], gv = gr && gr[t.c];
+    return gv === tileVal;
+  });
 }
 
 function handleCellClick(r, c) {
   if (isUpgradeTool()) {
     const cur = grid[r][c];
     const next = upgradeChain[cur];
-    if (next !== undefined) {
-      grid[r][c] = next;
-
-      if (cur === 6) {
-        // village -> small_city: register new city, claim 3x3 (half=1)
-        const idx = cityCenters.length;
-        cityCenters.push({ r, c });
-        actionOrder.push(idx);
-        claimTiles(idx, r, c, 1);
-      } else if (cur === 1) {
-        // small_city -> big_city: claim the 16 extra tiles in 5x5 (half=2), skip already owned
-        const idx = cityIdxAt(r, c);
-        if (idx !== -1) {
-          actionOrder.push(idx);
-          claimTiles(idx, r, c, 2);
-        }
-      }
-
-      renderDebug();
-      render();
+    if (next === undefined) {
+      // big_city or non-village/city: disallowed
+      disallowedAction(r, c);
+      return;
     }
-    // big_city (10) or non-upgradeable: do nothing
+
+    grid[r][c] = next;
+
+    if (cur === 6) {
+      // village -> small_city: register new city, claim 3x3 (half=1)
+      const idx = cityCenters.length;
+      cityCenters.push({ r, c });
+      actionOrder.push(idx);
+      claimTiles(idx, r, c, 1);
+    } else if (cur === 1) {
+      // small_city -> big_city: claim the 16 extra tiles in 5x5 (half=2), skip already owned
+      const idx = cityIdxAt(r, c);
+      if (idx !== -1) {
+        actionOrder.push(idx);
+        claimTiles(idx, r, c, 2);
+      }
+    }
+
+    renderDebug();
+    render();
   } else {
     // Prevent overwriting small_city or big_city
-    if (cityTiles.has(grid[r][c])) return;
+    if (cityTiles.has(grid[r][c])) {
+      disallowedAction(r, c);
+      return;
+    }
+
+    // Village placement: must not be within 5x5 of any other village or city
+    if (selectedVal === 6 && villageConflict(r, c)) {
+      disallowedAction(r, c);
+      return;
+    }
+
+    // Market (4): city may only have 1
+    if (selectedVal === 4 && cityAlreadyHas(r, c, 4)) {
+      disallowedAction(r, c);
+      return;
+    }
+
+    // Windmill (8): city may only have 1
+    if (selectedVal === 8 && cityAlreadyHas(r, c, 8)) {
+      disallowedAction(r, c);
+      return;
+    }
+
     grid[r][c] = selectedVal;
     renderDebug();
     render();
@@ -394,11 +459,75 @@ function render() {
   }
 
   document.getElementById('bottom-bar').style.height = (cellSize + 24) + 'px';
+  renderBorders();
+}
+
+// Distinct colors per city for border strokes
+const CITY_COLORS = ['#000000', '#1a237e', '#b71c1c', '#1b5e20', '#e65100', '#4a148c', '#006064', '#3e2723'];
+
+function renderBorders() {
+  const svg = document.getElementById('border-svg');
+  const container = document.getElementById('grid-container');
+  const wrapper = document.getElementById('grid-wrapper');
+  const rows = grid.length, cols = grid[0].length;
+  const W = cols * cellSize, H = rows * cellSize;
+
+  // Position SVG to exactly overlap the grid-container
+  const cRect = container.getBoundingClientRect();
+  const wRect = wrapper.getBoundingClientRect();
+  svg.style.left = (cRect.left - wRect.left) + 'px';
+  svg.style.top  = (cRect.top  - wRect.top)  + 'px';
+
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = '';
+
+  const stroke = Math.max(3, Math.round(cellSize * 0.045));
+
+  Object.entries(tilesOwnedByCity).forEach(([idxStr, tiles]) => {
+    const idx = parseInt(idxStr);
+    // Only consider tiles that are currently within grid bounds
+    const inBounds = tiles.filter(t => t.r >= 0 && t.r < rows && t.c >= 0 && t.c < cols);
+    if (inBounds.length === 0) return;
+    // owned set includes ALL tiles (including off-grid) so borders at the grid edge
+    // correctly show as boundary when the neighbor is off-grid but owned
+    const owned = new Set(tiles.map(t => `${t.r},${t.c}`));
+    const color = CITY_COLORS[idx % CITY_COLORS.length];
+
+    // For each owned tile, check each of its 4 edges.
+    // If the neighbor is NOT owned by this city, draw that edge as a border segment.
+    const segments = [];
+    inBounds.forEach(({ r, c }) => {
+      const x = c * cellSize, y = r * cellSize;
+      // top edge: neighbor is (r-1, c)
+      if (!owned.has(`${r - 1},${c}`)) segments.push([x, y, x + cellSize, y]);
+      // bottom edge: neighbor is (r+1, c)
+      if (!owned.has(`${r + 1},${c}`)) segments.push([x, y + cellSize, x + cellSize, y + cellSize]);
+      // left edge: neighbor is (r, c-1)
+      if (!owned.has(`${r},${c - 1}`)) segments.push([x, y, x, y + cellSize]);
+      // right edge: neighbor is (r, c+1)
+      if (!owned.has(`${r},${c + 1}`)) segments.push([x + cellSize, y, x + cellSize, y + cellSize]);
+    });
+
+    segments.forEach(([x1, y1, x2, y2]) => {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+      line.setAttribute('stroke', color);
+      line.setAttribute('stroke-width', stroke);
+      line.setAttribute('stroke-linecap', 'square');
+      svg.appendChild(line);
+    });
+  });
 }
 
 // Shift all cityCenters coords when grid expands in a direction that offsets existing rows/cols
 function shiftCityCenters(dr, dc) {
   cityCenters = cityCenters.map(cc => ({ r: cc.r + dr, c: cc.c + dc }));
+  Object.keys(tilesOwnedByCity).forEach(idx => {
+    tilesOwnedByCity[idx] = tilesOwnedByCity[idx].map(t => ({ r: t.r + dr, c: t.c + dc }));
+  });
 }
 
 document.getElementById('top-plus').onclick  = () => { grid.unshift(newRow(grid[0].length)); shiftCityCenters(1, 0); renderDebug(); render(); };
