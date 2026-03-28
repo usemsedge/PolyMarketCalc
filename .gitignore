@@ -1,2 +1,7 @@
 node_modules/
 emsdk/
+marketcalc_tests.dSYM/
+
+marketcalc.js
+marketcalc.wasm
+marketcalc_tests

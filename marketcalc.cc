@@ -426,7 +426,7 @@ extern "C" {
     Returns:
     pointer to 1d array of tiles (but with more markets and buildings), rows x cols total length
     */
-    int32_t* findBestMarketLayout_wasm(int32_t* mapData, int32_t rows, int32_t cols, 
+    int32_t* main_wasm(int32_t* mapData, int32_t rows, int32_t cols, 
                                     int32_t* cityCenterData, int32_t numCities,
                                     int32_t* actionOrderData, int32_t actionOrderSize) {
         std::cout << "Received map of size " << rows << "x" << cols << std::endl;

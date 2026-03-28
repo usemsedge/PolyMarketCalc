@@ -645,7 +645,7 @@ document.getElementById('calc-btn').onclick = () => {
     ActionOrderHeap.set(flatActionOrderData); // Copy action order data into WASM memory
 
     // Call the WASM function (replace 'yourWasmFunction' with the actual function name)
-    const result = wasmModule._findBestMarketLayout_wasm(mapDataPtr, rows, cols, CityCenterData, numCities, ActionOrderData, numActions);
+    const result = wasmModule._main_wasm(mapDataPtr, rows, cols, CityCenterData, numCities, ActionOrderData, numActions);
     console.log('WASM function result:', result);
 
     // Result is an int pointer, we need to read the data it points to (assuming it's a grid of the same size)

@@ -11,3 +11,11 @@ What you can do as a user:
 
 What we do:
 Takes your JS frontend grid setup and runs a optimized WASM recursive backtrack + threads
+
+# Setup
+npm install
+
+# MAKEFILE USAGE:
+make test - create and run tests for c file
+make run - compile to wasm and run server
+make clean - remove all test/compiled binaries
