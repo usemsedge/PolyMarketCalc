@@ -7,33 +7,60 @@
 
 using std::vector;
 
+BacktrackState defaultState = {NULL, 0, 0, NULL, 0, NULL, NULL, NULL};
 
-inline constexpr TileState T(int owner, int type) {
-  return TileState{owner, type};
-}
-
-inline vector<vector<TileState>> makeNoSpecialMap() {
-  return {
-    {T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY)},
-    {T(-1, EMPTY), T(-1, CITY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY)},
-    {T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY)},
-    {T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, CITY), T(-1, EMPTY)},
-    {T(-1, EMPTY), T(-1, CITY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY)},
-    {T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY)},
-    {T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY)},
-    {T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY)},
+/*
+Caller responsible for freeing returned map
+*/
+int32_t* makeNoSpecialMap() {
+  int32_t size = 8 * 6;
+  int32_t* map = (int32_t*)malloc(size * sizeof(TileState));
+  if (!map) {
+    fprintf(stderr, "Memory allocation failed\n");
+    return NULL;
+  }
+  int32_t temp[] = {
+    -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY,
+    -1, EMPTY, -1, CITY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY,
+    -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY,
+    -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, CITY, -1, EMPTY,
+    -1, EMPTY, -1, CITY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY,
+    -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY,
+    -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1,EMPTY,
+    -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY,
   };
-}
 
-inline vector<Coord> makeNoSpecialCityCenters() {
-  return {
-    Coord{1, 1},
-    Coord{3, 4},
-    Coord{4, 1},
-  };
+  for (int i = 0; i < size * sizeof(TileState) / sizeof(int32_t); i++) {
+    map[i] = temp[i];
+  }
+  return map;
 }
 
 /*
+Caller responsible for freeing returned array
+*/
+int32_t* makeNoSpecialCityCenters() {
+  int32_t size = 3;
+  int32_t* cityCenters = (int32_t*)malloc(size * sizeof(Coord));
+  if (!cityCenters) {
+    fprintf(stderr, "Memory allocation failed\n");
+    return NULL;
+  }
+  int32_t temp[] = {
+    1, 1,
+    3, 4,
+    4, 1,
+  };
+
+  for (int i = 0; i < size * sizeof(Coord) / sizeof(int32_t); i++) {
+    cityCenters[i] = temp[i];
+  }
+  return cityCenters;
+
+}
+
+/*
+Caller responsi1ble for freeing returned map
  // Create a simple map and state for testing 
   // Contains a mix of everything
   // 3 cities, 2 buildings, 1 market
@@ -57,83 +84,94 @@ inline vector<Coord> makeNoSpecialCityCenters() {
    * = BUILDING
    (empty) = EMPTY
   */
-inline BacktrackState makeRealState() {
-  static vector<vector<TileState>> map;
-  static vector<Coord> cityCenters;
-  static unordered_map<int, vector<Coord>> tilesOwnedByCity;
-
-  map = {
-    {T(0, EMPTY), T(0, EMPTY), T(0, OBSTACLE), T(0, EMPTY), T(-1, EMPTY), T(-1, EMPTY)},
-    {T(0, EMPTY), T(0, CITY), T(0, BUILDING), T(0, EMPTY), T(1, EMPTY), T(1, RESOURCE)},
-    {T(0, EMPTY), T(0, USED_RESOURCE), T(0, USED_RESOURCE), T(1, EMPTY), T(1, EMPTY), T(1, EMPTY)},
-    {T(2, EMPTY), T(2, USED_RESOURCE), T(2, EMPTY), T(1, OBSTACLE), T(1, CITY), T(1, EMPTY)},
-    {T(2, EMPTY), T(2, CITY), T(2, MARKET), T(1, EMPTY), T(1, EMPTY), T(1, EMPTY)},
-    {T(2, EMPTY), T(2, USED_RESOURCE), T(2, BUILDING), T(1, EMPTY), T(1, EMPTY), T(1, EMPTY)},
-    {T(2, EMPTY), T(2, EMPTY), T(2, EMPTY), T(2, EMPTY), T(-1, EMPTY), T(-1, EMPTY)},
-    {T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY), T(-1, EMPTY)},
-  };
-  cityCenters = {
-      Coord{1, 1},
-      Coord{3, 4},
-      Coord{4, 1},
-  };
-
-  tilesOwnedByCity.clear();
-  // 11 tiles
-  tilesOwnedByCity[0] = {
-    Coord{0, 0}, Coord{0, 1}, Coord{0, 2}, Coord{0, 3}, 
-    Coord{1, 0}, Coord{1, 1}, Coord{1, 2}, Coord{1, 3}, 
-    Coord{2, 0}, Coord{2, 1}, Coord{2, 2}
+BacktrackState makeRealState() {
+  int32_t rows = 8;
+  int32_t cols = 6;
+  int32_t numCities = 3;
+  int32_t size = rows * cols;
+  int32_t* map = (int32_t*)malloc(size * sizeof(TileState));
+  if (!map) {
+    fprintf(stderr, "Memory allocation failed\n");
+    return defaultState;
+  }
+  int32_t temp[] = {
+    0, EMPTY, 0, EMPTY, 0, OBSTACLE, 0, EMPTY, -1, EMPTY, -1, EMPTY,
+    0, EMPTY, 0, CITY, 0, BUILDING, 0, EMPTY, 1, EMPTY, 1, RESOURCE,
+    0, EMPTY, 0, USED_RESOURCE, 0, USED_RESOURCE, 1, EMPTY, 1, EMPTY, 1, EMPTY,
+    2, EMPTY, 2, USED_RESOURCE, 2, EMPTY, 1, OBSTACLE, 1, CITY, 1, EMPTY,
+    2, EMPTY, 2, CITY, 2, MARKET, 1, EMPTY, 1, EMPTY, 1, EMPTY,
+    2, EMPTY, 2, USED_RESOURCE, 2, BUILDING, 1, EMPTY, 1, EMPTY, 1, EMPTY,
+    2, EMPTY, 2, EMPTY, 2, EMPTY, 2, EMPTY, -1, EMPTY, -1, EMPTY,
+    -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY, -1, EMPTY,
   };
 
-  // 14 tiles
-  tilesOwnedByCity[1] = {
-                Coord{1, 4}, Coord{1, 5}, 
-    Coord{2, 3}, Coord{2, 4}, Coord{2, 5}, 
-    Coord{3, 3}, Coord{3, 4}, Coord{3, 5}, 
-    Coord{4, 3}, Coord{4, 4}, Coord{4, 5},
-    Coord{5, 3}, Coord{5, 4}, Coord{5, 5}
-  };
+  int32_t* cityCenters = makeNoSpecialCityCenters();
 
-  // 13 tiles
-  tilesOwnedByCity[2] = {
-    Coord{3, 0}, Coord{3, 1}, Coord{3, 2},
-    Coord{4, 0}, Coord{4, 1}, Coord{4, 2},
-    Coord{5, 0}, Coord{5, 1}, Coord{5, 2},
-    Coord{6, 0}, Coord{6, 1}, Coord{6, 2}, Coord{6, 3},
-  };
+  int32_t sizeTilesOwned = 3 * MAX_TILES_PER_CITY;
+  int32_t* tilesOwnedByCity = (int32_t*)malloc(sizeTilesOwned * sizeof(Coord));
+  if (!tilesOwnedByCity) {
+    fprintf(stderr, "Memory allocation failed\n");
+    return defaultState;
+  }
 
-  // 2 buildings placed
-  unordered_set<Coord> curBuildingsSet = {
-    Coord{1, 2},
-    Coord{5, 2},
+  int32_t row0[] = {
+    0, 0, 0, 1, 0, 2, 0, 3,
+    1, 0, 1, 1, 1, 2, 1, 3,
+    2, 0, 2, 1, 2, 2
   };
+  for (int i = 0; i < 11 * 2; i++) {
+    tilesOwnedByCity[i] = row0[i];
+  }
 
-  // Building ownership by city
-  unordered_map<int, Coord> curBuildingsInCity = {
-    {0, Coord{1, 2}},
-    {2, Coord{5, 2}},
+  int32_t row1[] = {
+          1, 4, 1, 5,
+    2, 3, 2, 4, 2, 5,
+    3, 3, 3, 4, 3, 5,
+    4, 3, 4, 4, 4, 5,
+    5, 3, 5, 4, 5, 5
   };
+  for (int i = 0; i < 14 * 2; i++) {
+    tilesOwnedByCity[MAX_TILES_PER_CITY * 2 + i] = row1[i];
+  }
 
-  // 1 market placed
-  unordered_set<Coord> curMarketsSet = {
-    Coord{4, 2},
+  int32_t row2[] = {
+    3, 0, 3, 1, 3, 2,
+    4, 0, 4, 1, 4, 2,
+    5, 0, 5, 1, 5, 2,
+    6, 0, 6, 1, 6, 2, 6, 3
   };
+  for (int i = 0; i < 13 * 2; i++) {
+    tilesOwnedByCity[2 * 2 * MAX_TILES_PER_CITY + i] = row2[i];
+  }
 
-  // Market ownership by city
-  unordered_map<int, Coord> curMarketsInCity = {
-    {2, Coord{4, 2}},
-  };
+  // 2 buildings and 1market
+  Coord* curBuildingsInCity = (Coord*)malloc(numCities * sizeof(Coord));
+  if (!curBuildingsInCity) {
+    fprintf(stderr, "Memory allocation failed\n");
+    return defaultState;
+  }
+  curBuildingsInCity[0] = Coord{1, 2};
+  curBuildingsInCity[2] = Coord{5, 2};
+
+  Coord* curMarketsInCity = (Coord*)malloc(numCities * sizeof(Coord));
+  if (!curMarketsInCity) {
+    fprintf(stderr, "Memory allocation failed\n");
+    return defaultState;
+  }
+  curMarketsInCity[2] = Coord{4, 2};
 
   return BacktrackState{
-    map,
-    cityCenters,
-    tilesOwnedByCity,
+    (const int32_t*) map,
+    rows,
+    cols,
 
-    curBuildingsInCity,
-    curBuildingsSet,
-    curMarketsInCity,
-    curMarketsSet,
+    (const int32_t*)cityCenters,
+    numCities,
+
+    (const int32_t*)tilesOwnedByCity,
+
+    (int32_t*)curBuildingsInCity,
+    (int32_t*)curMarketsInCity,
   };
 }
 
@@ -157,4 +195,5 @@ inline const vector<vector<int>> realStateAllowedBuildingPlacements = {
   {0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0},
 };
+
 

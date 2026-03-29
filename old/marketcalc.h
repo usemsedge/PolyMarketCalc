@@ -1,89 +1,118 @@
 #ifndef MARKETCALC_H_
 #define MARKETCALC_H_
 
-#include <stdio.h>
+#include <iostream>
+#include <vector>
+#include <unordered_map>
+#include <functional>
+#include <utility>
+#include <unordered_set>
 
-const int32_t MAX_BUILDING_LEVEL = 8;
-const int32_t MAX_MARKET_LEVEL = 8;
+using std::pair;
+using std::vector;
+using std::unordered_map;
+using std::unordered_set;
 
-// to limit the size of tilesOwnedByCity array
-const int32_t MAX_TILES_PER_CITY = 25;
+#define MAX_BUILDING_LEVEL 8
+#define MAX_MARKET_LEVEL 8
 
 // Tile type constants
-const int32_t EMPTY = 0;
-const int32_t CITY = 1;
-const int32_t OBSTACLE = 2;
-const int32_t RESOURCE = 3;
-const int32_t BUILDING = 4;
-const int32_t MARKET = 5;
-const int32_t USED_RESOURCE = 6;
+constexpr int EMPTY = 0;
+constexpr int CITY = 1;
+constexpr int OBSTACLE = 2;
+constexpr int RESOURCE = 3;
+constexpr int BUILDING = 4;
+constexpr int MARKET = 5;
+constexpr int USED_RESOURCE = 6;
 
-typedef struct TileState {
-  int32_t owner; // city ID that owns this tile, or -1 if unowned
-  int32_t type; // tile type (EMPTY, CITY, OBSTACLE, RESOURCE, BUILDING, MARKET)
-} TileState;
+struct TileState {
+  int owner; // city ID that owns this tile, or -1 if unowned
+  int type; // tile type (EMPTY, CITY, OBSTACLE, RESOURCE, BUILDING, MARKET)
 
-typedef struct Coord {
-  int32_t row;
-  int32_t col;
-} Coord;
+  bool operator==(const TileState& other) const {
+    return owner == other.owner && type == other.type;
+  }
+
+  bool operator!=(const TileState& other) const {
+    return !(*this == other);
+  }
+};
+
+struct Coord {
+  int row;
+  int col;
+
+  bool operator==(const Coord& other) const {
+    return row == other.row && col == other.col;
+  }
+
+  bool operator!=(const Coord& other) const {
+    return !(*this == other);
+  }
+};
+
+
+
+namespace std {
+  template <>
+  struct hash<Coord> {
+    size_t operator()(const Coord& c) const {
+      return hash<long long>()(((long long)c.row << 32) | (c.col & 0xFFFFFFFF));
+    }
+  };
+}
 
 // State structure
-typedef struct BacktrackState {
+struct BacktrackState {
     // EVERYTHING MUST BE CONSISTENT WITH EACH OTHER
 
     // Ownership and tile map
-    // Represented as a 1d int32 array of length rows * cols * 2 (2 ints per TileState)
-    const int32_t* map; 
-    const int32_t rows;
-    const int32_t cols;
+    const vector<vector<TileState>>& map; 
 
     // cityCenters[i] corresponds to city ID i
-    const int32_t* cityCenters;
-    const int32_t numCities;
+    const vector<Coord>& cityCenters; 
 
     // tilesOwnedByCity[cityId] gives list of coordinates
-    const int32_t* tilesOwnedByCity;
-      // length given by numCities * MAX_TILES_PER_CITY
-      // where each city has a contiguous block of MAX_TILES_PER_CITY coordinates
+    const unordered_map<int, vector<Coord>>& tilesOwnedByCity;
 
     // Requires: quick access to buildings/markets per city for at most 1 checks
     //           quick access to buildings/markets per tile for adjacency checks
     // Map from city ID to building/market, key not present if not placed
-    //   Represented by int array with length numCities * 2 (2 ints per coord)
-
-    // Coord(-1, -1) if not placed, otherwise valid Coord
-    int32_t* curBuildingsInCity; 
-    int32_t* curMarketsInCity;
-} BacktrackState;
+    // Set of all building/market coordinates for quick lookup
+    unordered_map<int, Coord> curBuildingsInCity;
+    unordered_set<Coord> curBuildingsSet; 
+    unordered_map<int, Coord> curMarketsInCity;
+    unordered_set<Coord> curMarketsSet;
+};
 
 // Result structure
-typedef struct BacktrackResult {
+struct BacktrackResult {
     int bestMarketTotal;
-    // Represented as a 1d int32 array of length rows * cols * 2 (2 ints per TileState)
-    const int32_t* map; 
-    const int32_t rows;
-    const int32_t cols;
-} BacktrackResult;
+    vector<vector<TileState>> bestLayout;
+
+    bool operator<(const BacktrackResult& other) const {
+        return bestMarketTotal < other.bestMarketTotal;
+    }
+};
 
 
 // Direction offsets for 8-neighbor adjacency
-const int32_t dx[] = {-1, -1, -1, 0, 0, 1, 1, 1};
-const int32_t dy[] = {-1, 0, 1, -1, 1, -1, 0, 1};
-const int32_t BASE_TILE_COUNT = 8;
+constexpr int dx[] = {-1, -1, -1, 0, 0, 1, 1, 1};
+constexpr int dy[] = {-1, 0, 1, -1, 1, -1, 0, 1};
+constexpr int BASE_TILE_COUNT = 8;
 
 // Direction offsets for extra 5x5 tiles
-const int32_t dx5[] = {-2, -1, 0, 1, 2,
+constexpr int dx5[] = {-2, -1, 0, 1, 2,
                       -2,            2,
                       -2,            2,
                       -2,            2,
                       -2, -1, 0, 1, 2};
-const int32_t dy5[] = {-2, -2, -2, -2, -2,
+constexpr int dy5[] = {-2, -2, -2, -2, -2,
                       -1,              -1,
                        0,               0,
                        1,               1,
                        2,  2,  2,  2,  2};
-const int32_t EXPANDED_TILE_COUNT = 16;
+constexpr int EXPANDED_TILE_COUNT = 16;
 
 /*
 Compute ownership map based on city centers, capture order, and growth order.
@@ -107,27 +136,22 @@ Arguments:
 map: 2D grid of TileStates
       tilestate.type can be EMPTY, CITY, OBSTACLE, RESOURCE, BUILDING, MARKET
       tilestate.owner should all be unowned (-1) at the start
-      Represented as a 1d int32 array of length rows * cols * sizeOf(TileState)
-        TileStates have 2 ints
-cityCenterData, numCities: list of (row, col) coordinates for city centers which are claimed
-      cityCenters[i] gives the Coord of city ID i
-      represented as a 1D array of length numCities * 2 (as Coord contains 2 ints)
-actionOrderData, actionOrderSize: order in which each city is captured and border growths 
+cityCenters: list of (row, col) coordinates for city centers which are claimed
+      cityCenters[i] corresponds to city ID i
+actionOrder: order in which each city is captured and border growths  
       The first occurence of a city ID captures the city
       The second occurence of a city ID border growths
       All city IDs in cityCenters must appear in the map (but not necessarily the other way around).
       All city IDs in actionOrder must be in cityCenters.
       All city IDs in cityCenters must appear at least once in actionOrder, but at most twice.
-      represented as a 1d array of length actionOrderSize, where numCities <= actionOrderSize <= 2 * numCities
-
+    
 Modifies:
 Input map - marks each tile's owner field with the city ID that owns it, or -1 if unowned
 
 */
-
-void computeOwnership(int32_t* mapData, int32_t rows, int32_t cols,
-              int32_t* cityCenterData, int32_t numCities,
-              int32_t* actionOrderData, int32_t actionOrderSize);
+void computeOwnership(vector<vector<TileState>>& map, 
+                      const vector<Coord>& cityCenters,
+                      const vector<int>& actionOrder);
 
 /*
 Checks if a market is allowed to be placed on a tile, based off a BacktrackState
@@ -151,7 +175,7 @@ coord: coordinates of the tile to check
 Returns: 
 true if we can place a market, false otherwise
 */
-bool canPlaceMarket(const BacktrackState* state, Coord coord);
+bool canPlaceMarket(const BacktrackState& state, Coord coord);
 
 /*
 Checks if a building is allowed to be placed on a tile, based off a BacktrackState
@@ -176,7 +200,7 @@ coord: coordinates of the tile to check
 Returns: 
 true if we can place a building, false otherwise
 */
-bool canPlaceBuilding(const BacktrackState* state, Coord coord);
+bool canPlaceBuilding(const BacktrackState& state, Coord coord);
 
 /*
 Given an existing state, recursively place buildings and markets
@@ -201,7 +225,7 @@ placingBuilding: true if placing building, false if placing market
 
 Returns: backtrackResult with the best market total found and the corresponding layout
 */
-BacktrackResult backtrackPlacements(BacktrackState* state, int cityIdx, bool placingBuilding);
+BacktrackResult backtrackPlacements(BacktrackState& state, int cityIdx, bool placingBuilding);
 
 /*
 Given a state, calculate total market level.
@@ -210,7 +234,7 @@ Rules:
 - Market level is determined by sum of adjaicent building levels (up to MAX_MARKET_LEVEL)
 - Total market level is the sum of all individual market levels.
 */
-int calculateMarketTotal(const BacktrackState* state);
+int calculateMarketTotal(const BacktrackState& state);
 
 
 /*
@@ -220,27 +244,23 @@ Throw errors if invalid input is given.
   cityCenters does not match with map, etc.)
 
 Args:
-mapData, rows, cols: 2D grid of ints representing tile types (EMPTY, CITY, OBSTACLE, RESOURCE)
-      represented as a 1D array of length rows * cols, row-major order
-cityCenterData, numCities: list of (row, col) coordinates for city centers which are claimed
-      (SAME DEF AS COMPUTEOWNERSHIP)
-      cityCenters[i] gives the Coord of city ID i
-      represented as a 1D array of length numCities * 2 (as Coord contains 2 ints)
-actionOrderData, actionOrderSize: order in which each city is captured and border growths 
+map: 2D grid of ints representing tile types (EMPTY, CITY, OBSTACLE, RESOURCE)
+cityCenters: list of (row, col) coordinates for city centers which are claimed
+      cityCenters[i] corresponds to city ID i
+vector<int> actionOrder: order in which each city is captured and border growths 
       (SAME DEF AS COMPUTEOWNERSHIP)
       The first occurence of a city ID captures the city
       The second occurence of a city ID border growths
       All city IDs in cityCenters must appear in the map (but not necessarily the other way around).
       All city IDs in actionOrder must be in cityCenters.
       All city IDs in cityCenters must appear at least once in actionOrder, but at most twice.
-      represented as a 1d array of length actionOrderSize, where numCities <= actionOrderSize <= 2 * numCities
 
 Return:
 BacktrackResult containing the best market total found and the corresponding layout
 */
-BacktrackResult findBestMarketLayout(int32_t* mapData, int32_t rows, int32_t cols,
-                                    int32_t* cityCenterData, int32_t numCities,
-                                    int32_t* actionOrderData, int32_t actionOrderSize);
+BacktrackResult findBestMarketLayout(vector<vector<int>>& map, 
+                                    const vector<Coord>& cityCenters,
+                                    const vector<int>& actionOrder);
 
 
 #endif // MARKETCALC_H_
